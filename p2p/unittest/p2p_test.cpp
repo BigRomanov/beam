@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
 #if LOG_VERBOSE_ENABLED
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
-    auto logger = Logger::create(logLevel, logLevel);
+    auto logger = Logger::create(logLevel, logLevel, LOG_LEVEL_INFO, "p2p_test_");
     logger->set_header_formatter(
         [](char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) -> size_t {
             return snprintf(buf, maxSize, "%c %s (%s, %d) ", loglevel_tag(header.level), timestampFormatted, header.func, (int)get_thread_id());
