@@ -109,6 +109,8 @@ int p2ptest_1(io::Address seedAddr, int port) {
     TestP2PNotifications callbacks;
     P2PSettings settings;
 
+    settings.listenToPort = port;
+
     // seed initial server address
     settings.priorityPeers.emplace_back(seedAddr.port(port));
 
