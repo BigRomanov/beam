@@ -7,8 +7,8 @@ namespace proto {
 
 /////////////////////////
 // NodeConnection
-NodeConnection::NodeConnection()
-	:m_Protocol(0xAA, 0xBB, 0xCC, 100, *this, 20000)
+NodeConnection::NodeConnection(P2P* p2p)
+	: m_p2p(p2p)
 	, m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) m_Protocol.add_message_handler<NodeConnection, msg, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 1, 2000000);
@@ -106,9 +106,8 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
-	m_SerializeCache.clear(); \
-	m_Protocol.serialize(m_SerializeCache, uint8_t(code), v); \
-	io::Result res = m_Connection->write_msg(m_SerializeCache); \
+	m_p2p->get_protocol().serialize(m_SerializeCache, uint8_t(code), v); \
+	io::Result res = m_p2p->send_message(m_Connection, m_SerializeCache); \
 	m_SerializeCache.clear(); \
 \
 	TestIoResult(res); \
@@ -128,15 +127,6 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg&& v) \
 
 BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
-
-
-/////////////////////////
-// NodeConnection::Server
-void NodeConnection::Server::Listen(const io::Address& addr)
-{
-	m_pServer = io::TcpServer::create(io::Reactor::get_Current().shared_from_this(), addr, BIND_THIS_MEMFN(OnAccepted));
-}
-
 
 
 } // namespace proto

@@ -17,9 +17,9 @@ public:
     /// Returns if ip allowed at the moment
     bool is_ip_allowed(uint32_t ip);
 
-    void schedule_reconnect(io::Address a, Timestamp waitUntil);
+    void schedule_reconnect(io::Address a, Time waitUntil);
 
-    void ban(io::Address a, Timestamp waitUntil);
+    void ban(io::Address a, Time waitUntil);
 
     void unban(io::Address a);
 
@@ -30,7 +30,7 @@ public:
 private:
     /// Checks schedule and performs reconnect/unban if wait time expired
     /// returns true to proceed
-    bool dequeue_schedule(Timestamp now);
+    bool dequeue_schedule(Time now);
 
     using IpSet = std::unordered_set<uint32_t>;
 
@@ -41,7 +41,7 @@ private:
 
     struct Info {
         struct Key {
-            Timestamp waitUntil=0;
+            Time waitUntil=0;
             uint32_t ip=0;
 
             bool operator<(const Key& k) const {

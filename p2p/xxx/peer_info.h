@@ -41,7 +41,7 @@ struct PeerId {
 std::ostream& operator<<(std::ostream& os, const PeerId& p);
 
 /// Seconds since the epoch
-using Timestamp = uint32_t;
+using Time = uint32_t;
 
 /// Height of connected peer
 using Height = uint64_t;
@@ -68,8 +68,8 @@ struct PeerInfo {
     PeerState state;
 
     // persistent state
-    Timestamp updatedAt=0;
-    Timestamp bannedUntil=0; // 0 if not banned
+    Time updatedAt=0;
+    Time bannedUntil=0; // 0 if not banned
     uint64_t bytesSent=0;
     uint64_t bytesRcvd=0;
     uint32_t nConnects=0;

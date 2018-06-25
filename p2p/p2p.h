@@ -21,12 +21,12 @@ public:
 
     void start();
 
-    bool send_message(StreamId peer, const io::SharedBuffer& msg);
-    bool send_message(StreamId peer, const SerializedMsg& msg);
+    io::Result send_message(StreamId peer, const io::SharedBuffer& msg);
+    io::Result send_message(StreamId peer, const SerializedMsg& msg);
 
     void update_tip(uint32_t newTip);
-    void ban_peer(StreamId id, Timestamp until);
-    void ban_ip(uint32_t ip, Timestamp until);
+    void ban_peer(StreamId id, Time until);
+    void ban_ip(uint32_t ip, Time until);
 
 private:
     // IErrorHandler overrides

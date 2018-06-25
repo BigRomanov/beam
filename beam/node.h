@@ -38,7 +38,7 @@ struct Node
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
-		// negative: number of cores minus number of mining threads. 
+		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
 		struct HistoryCompression
@@ -231,15 +231,6 @@ private:
 	Peer* FindPeer(const Processor::PeerID&);
 
 	void RefreshCongestions();
-
-	struct Server
-		:public proto::NodeConnection::Server
-	{
-		// NodeConnection::Server
-		virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) override;
-
-		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
-	} m_Server;
 
 	struct PerThread
 	{

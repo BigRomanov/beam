@@ -41,7 +41,7 @@ bool IpAccessControl::is_ip_allowed(uint32_t ip) {
     return true;
 }
 
-void IpAccessControl::schedule_reconnect(io::Address a, Timestamp waitUntil) {
+void IpAccessControl::schedule_reconnect(io::Address a, Time waitUntil) {
     if (waitUntil == 0) return;
 
     uint16_t port = a.port();
@@ -68,7 +68,7 @@ void IpAccessControl::schedule_reconnect(io::Address a, Timestamp waitUntil) {
     _schedule.insert(i.key);
 }
 
-void IpAccessControl::ban(io::Address a, Timestamp waitUntil) {
+void IpAccessControl::ban(io::Address a, Time waitUntil) {
     if (waitUntil == 0) return;
 
     uint32_t ip = a.ip();
@@ -124,11 +124,11 @@ void IpAccessControl::on_timer() {
     if (_schedule.empty()) {
         return;
     }
-    Timestamp now = time(0);
+    Time now = time(0);
     while (dequeue_schedule(now)) {}
 }
 
-bool IpAccessControl::dequeue_schedule(Timestamp now) {
+bool IpAccessControl::dequeue_schedule(Time now) {
     auto i = _schedule.begin();
     if (i == _schedule.end() || i->waitUntil > now) {
         return false;

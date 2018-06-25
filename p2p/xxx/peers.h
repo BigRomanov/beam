@@ -58,8 +58,8 @@ private:
     using AllPeers = std::unordered_map<Peer, std::unique_ptr<PeerInfoInternal>>;
 
     // Address->bannedUntil
-    using BannedPeers = std::unordered_map<Peer, Timestamp>;
-    using BannedUntil = std::map<Timestamp, Peer>;
+    using BannedPeers = std::unordered_map<Peer, Time>;
+    using BannedUntil = std::map<Time, Peer>;
 
     // Address->weight
     using ConnectedPeers = std::unordered_map<Peer, uint32_t>;
@@ -71,7 +71,7 @@ private:
     using ConnectingPeers = std::unordered_map<Peer, uint32_t>;
 
     // add new peer impl
-    void add_new_peer(PeerInfo& peer, Timestamp now, bool toBeUpdated);
+    void add_new_peer(PeerInfo& peer, Time now, bool toBeUpdated);
 
     std::mutex _mutex;
     AllPeers _allPeers;

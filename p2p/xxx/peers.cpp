@@ -44,10 +44,10 @@ bool Peers::add_new_peer(io::Address address) {
     return true;
 }
 
-void Peers::add_new_peer(PeerInfo& peer, Timestamp now, bool toBeUpdated) {
+void Peers::add_new_peer(PeerInfo& peer, Time now, bool toBeUpdated) {
     Peer id = peer_id(peer.address);
 
-    Timestamp bannedTs = peer.bannedUntil;
+    Time bannedTs = peer.bannedUntil;
     bool isBanned = false;
 
     if (bannedTs != 0) {

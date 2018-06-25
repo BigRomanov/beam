@@ -1,10 +1,11 @@
 #pragma once
 
 #include "common.h"
-#include "../utility/bridge.h"
-#include "../p2p/protocol.h"
-#include "../p2p/connection.h"
-#include "../utility/io/tcpserver.h"
+//#include "../utility/bridge.h"
+//#include "../p2p/protocol.h"
+//#include "../p2p/connection.h"
+//#include "../utility/io/tcpserver.h"
+#include "p2p/p2p.h"
 
 namespace beam {
 namespace proto {
@@ -128,11 +129,9 @@ namespace proto {
 
 
 
-	class NodeConnection
-		:public IErrorHandler
-	{
-		Protocol m_Protocol;
-		std::unique_ptr<Connection> m_Connection;
+	class NodeConnection {
+		P2P* m_p2p;
+		StreamId m_Connection;
 		bool m_ConnectPending;
 
 		SerializedMsg m_SerializeCache;
@@ -142,8 +141,8 @@ namespace proto {
 		static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, int status);
 		void OnConnectInternal2(io::TcpStream::Ptr&& newStream, int status);
 
-		virtual void on_protocol_error(uint64_t, ProtocolError error) override;
-		virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
+		//virtual void on_protocol_error(uint64_t, ProtocolError error) override;
+		//virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
 #define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg&& v);
 		BeamNodeMsgsAll(THE_MACRO)
@@ -151,14 +150,14 @@ namespace proto {
 
 	public:
 
-		NodeConnection();
+		explicit NodeConnection(P2P* p2p);
 		virtual ~NodeConnection();
 		void Reset();
 
 		void Connect(const io::Address& addr);
 		void Accept(io::TcpStream::Ptr&& newStream);
 
-		const Connection* get_Connection() { return m_Connection.get(); }
+		const StreamId& get_Connection() { return m_Connection; }
 
 		virtual void OnConnected() {}
 		virtual void OnClosed(int errorCode) {}
@@ -170,17 +169,9 @@ namespace proto {
 			OnMsg(std::move(v)); \
 			return true; \
 		} \
-		virtual void OnMsg(msg&& v) {} 
+		virtual void OnMsg(msg&& v) {}
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
-
-		struct Server
-		{
-			io::TcpServer::Ptr m_pServer; // just delete it to stop listening
-			void Listen(const io::Address& addr);
-
-			virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
-		};
 	};
 
 
