@@ -6,6 +6,7 @@
 
 #ifndef WIN32
 #	include <unistd.h>
+#	include <errno.h>
 #endif // WIN32
 
 namespace beam
@@ -213,7 +214,7 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Block::Rules::MaturityCoinbase : Block::Rules::MaturityStd);
+		HeightAdd(h, m_Coinbase ? Rules::MaturityCoinbase : Rules::MaturityStd);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
@@ -830,23 +831,23 @@ namespace beam
 
 	/////////////
 	// Block
-	const Height Block::Rules::HeightGenesis	= 1;
-	const Amount Block::Rules::Coin				= 1000000;
+	const Height Rules::HeightGenesis	= 1;
+	const Amount Rules::Coin				= 1000000;
 
-	Amount Block::Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
-	Height Block::Rules::MaturityCoinbase	= 60; // 1 hour
-	Height Block::Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
-	size_t Block::Rules::MaxBodySize		= 0x100000; // 1MB
+	Amount Rules::CoinbaseEmission	= Coin * 40; // the maximum allowed coinbase in a single block
+	Height Rules::MaturityCoinbase	= 60; // 1 hour
+	Height Rules::MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+	size_t Rules::MaxBodySize		= 0x100000; // 1MB
 
-	bool Block::Rules::FakePoW = false;
+	bool Rules::FakePoW = false;
 
-	uint32_t Block::Rules::DesiredRate_s				= 60; // 1 minute
-	uint32_t Block::Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
-	uint32_t Block::Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
-	uint32_t Block::Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-	uint32_t Block::Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+	uint32_t Rules::DesiredRate_s				= 60; // 1 minute
+	uint32_t Rules::DifficultyReviewCycle		= 24 * 60 * 7; // 10,080 blocks, 1 week roughly
+	uint32_t Rules::MaxDifficultyChange			= 3; // i.e. x8 roughly. (There's no equivalent to this in bitcoin).
+	uint32_t Rules::TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+	uint32_t Rules::WindowForMedian				= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 
-	void Block::Rules::get_Hash(ECC::Hash::Value& hv)
+	void Rules::get_Hash(ECC::Hash::Value& hv)
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
@@ -897,9 +898,9 @@ namespace beam
 
 	bool Block::SystemState::Full::IsSane() const
 	{
-		if (m_Height < Block::Rules::HeightGenesis)
+		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Block::Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == ECC::Zero))
 			return false;
 
 		return true;
@@ -950,7 +951,7 @@ namespace beam
 		ECC::uintBig ubSubsidy, ubCoinbase, mul;
 		bb.m_Subsidy.Export(ubSubsidy);
 
-		mul = Block::Rules::CoinbaseEmission;
+		mul = Rules::CoinbaseEmission;
 		ubCoinbase = nBlocksInRange;
 		ubCoinbase = ubCoinbase * mul;
 
@@ -958,10 +959,10 @@ namespace beam
 			return false;
 
 		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Block::Rules::MaturityCoinbase)
+		if (nBlocksInRange > Rules::MaturityCoinbase)
 		{
 			// some UTXOs may be spent already. Calculate the minimum remaining
-			nBlocksInRange -= Block::Rules::MaturityCoinbase;
+			nBlocksInRange -= Rules::MaturityCoinbase;
 			ubCoinbase = nBlocksInRange;
 			ubCoinbase = ubCoinbase * mul;
 
@@ -1002,7 +1003,7 @@ namespace beam
 
 	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
 	{
-		assert((hr.m_Min >= Block::Rules::HeightGenesis) && !hr.IsEmpty());
+		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
 
 		TxBase::Context ctx;
 		ctx.m_Height = hr;
@@ -1018,7 +1019,7 @@ namespace beam
         kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
     }
 
-	void Block::Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
+	void Rules::AdjustDifficulty(uint8_t& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s)
 	{
 		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
 		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
@@ -1092,25 +1093,12 @@ namespace beam
 
 		m_bRead = bRead;
 
-		int mode = ios_base::binary;
-		mode |= (m_bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
-
 		std::string pArr[s_Datas];
 		GetPathes(pArr);
 
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_F.open(pArr[i], (ios_base::openmode) mode);
-			if (s.m_F.fail())
+			if (!m_pS[i].Open(pArr[i].c_str(), bRead))
 				return false;
-
-			if (m_bRead)
-			{
-				s.m_Remaining = s.m_F.tellg();
-				s.m_F.seekg(0);
-			}
-		}
 
 		return true;
 	}
@@ -1134,11 +1122,7 @@ namespace beam
 	void Block::BodyBase::RW::Close()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			if (s.m_F.is_open())
-				s.m_F.close();
-		}
+			m_pS[i].Close();
 	}
 
 	Block::BodyBase::RW::~RW()
@@ -1153,11 +1137,7 @@ namespace beam
 	void Block::BodyBase::RW::Reset()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_Remaining += s.m_F.tellg();
-			s.m_F.seekg(0);
-		}
+			m_pS[i].Restart();
 
 		// preload
 		LoadInternal(m_pUtxoIn, m_pS[0], m_pGuardUtxoIn);
@@ -1166,63 +1146,10 @@ namespace beam
 		LoadInternal(m_pKernelOut, m_pS[3], m_pGuardKernelOut);
 	}
 
-	void Block::BodyBase::RW::Stream::TestNoFail()
-	{
-		if (m_F.fail())
-			throw std::runtime_error("fail");
-	}
-
-	void Block::BodyBase::RW::Stream::NotImpl()
-	{
-		throw std::runtime_error("not impl");
-	}
-
-	size_t Block::BodyBase::RW::Stream::read(void* pPtr, size_t nSize)
-	{
-		m_F.read((char*)pPtr, nSize);
-		size_t ret = m_F.gcount();
-		m_Remaining -= ret;
-
-		if (ret != nSize)
-			throw std::runtime_error("underflow");
-
-		return ret;
-	}
-
-	size_t Block::BodyBase::RW::Stream::write(const void* pPtr, size_t nSize)
-	{
-		m_F.write((char*) pPtr, nSize);
-		TestNoFail();
-
-		return nSize;
-	}
-
-	char Block::BodyBase::RW::Stream::getch()
-	{
-		char ch;
-		read(&ch, 1);
-		return ch;
-	}
-
-	char Block::BodyBase::RW::Stream::peekch() const
-	{
-		NotImpl();
-		return 0;
-	}
-
-	void Block::BodyBase::RW::Stream::ungetch(char)
-	{
-		NotImpl();
-	}
-
 	void Block::BodyBase::RW::Flush()
 	{
 		for (int i = 0; i < _countof(m_pS); i++)
-		{
-			Stream& s = m_pS[i];
-			s.m_F.flush();
-			s.TestNoFail();
-		}
+			m_pS[i].Flush();
 	}
 
 	void Block::BodyBase::RW::Clone(Ptr& pOut)
@@ -1256,10 +1183,10 @@ namespace beam
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
-		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(m_pS[4]);
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
 
 		ECC::Hash::Value hv, hv2;
-		Block::Rules::get_Hash(hv);
+		Rules::get_Hash(hv);
 
 		arc & hv2;
 
@@ -1272,11 +1199,11 @@ namespace beam
 
 	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
 	{
-		Stream& s = m_pS[4];
-		if (!s.m_Remaining)
+		std::FStream& s = m_pS[4];
+		if (!s.IsDataRemaining())
 			return false;
 
-		yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & elem;
 
 		return true;
@@ -1305,7 +1232,7 @@ namespace beam
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
 		ECC::Hash::Value hv;
-		Block::Rules::get_Hash(hv);
+		Rules::get_Hash(hv);
 
 		WriteInternal(hv, m_pS[4]);
 		WriteInternal(body, m_pS[4]);
@@ -1318,15 +1245,15 @@ namespace beam
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, Stream& s, typename T::Ptr* ppGuard)
+	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, std::FStream& s, typename T::Ptr* ppGuard)
 	{
-		if (s.m_Remaining)
+		if (s.IsDataRemaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
-			yas::binary_iarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 			arc & *ppGuard[0];
 
 			pPtr = ppGuard[0].get();
@@ -1336,9 +1263,9 @@ namespace beam
 	}
 
 	template <typename T>
-	void Block::BodyBase::RW::WriteInternal(const T& v, Stream& s)
+	void Block::BodyBase::RW::WriteInternal(const T& v, std::FStream& s)
 	{
-		yas::binary_oarchive<Stream, SERIALIZE_OPTIONS> arc(s);
+		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
 	}
 
@@ -1525,3 +1452,114 @@ namespace beam
 	}
 
 } // namespace beam
+
+namespace std
+{
+	void ThrowIoError()
+	{
+#ifdef WIN32
+		int nErrorCode = GetLastError();
+#else // WIN32
+		int nErrorCode = errno;
+#endif // WIN32
+
+		char sz[0x20];
+		snprintf(sz, _countof(sz), "I/O Error=%d", nErrorCode);
+		throw runtime_error(sz);
+	}
+
+	void TestNoError(const ios& obj)
+	{
+		if (obj.fail())
+			ThrowIoError();
+	}
+
+	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */)
+	{
+		int mode = ios_base::binary;
+		mode |= (bRead ? (ios_base::in | ios_base::ate) : (ios_base::out | ios_base::trunc));
+
+		m_F.open(sz, (ios_base::openmode) mode);
+		if (m_F.fail())
+		{
+			if (bStrict)
+				ThrowIoError();
+			return false;
+		}
+
+		if (bRead)
+		{
+			m_Remaining = m_F.tellg();
+			m_F.seekg(0);
+		}
+
+		return true;
+	}
+
+	void FStream::Close()
+	{
+		if (m_F.is_open())
+			m_F.close();
+	}
+
+	bool FStream::IsDataRemaining() const
+	{
+		return m_Remaining > 0;
+	}
+
+	void FStream::Restart()
+	{
+		m_Remaining += m_F.tellg();
+		m_F.seekg(0);
+	}
+
+	void FStream::NotImpl()
+	{
+		throw runtime_error("not impl");
+	}
+
+	size_t FStream::read(void* pPtr, size_t nSize)
+	{
+		m_F.read((char*)pPtr, nSize);
+		size_t ret = m_F.gcount();
+		m_Remaining -= ret;
+
+		if (ret != nSize)
+			throw runtime_error("underflow");
+
+		return ret;
+	}
+
+	size_t FStream::write(const void* pPtr, size_t nSize)
+	{
+		m_F.write((char*) pPtr, nSize);
+		TestNoError(m_F);
+
+		return nSize;
+	}
+
+	char FStream::getch()
+	{
+		char ch;
+		read(&ch, 1);
+		return ch;
+	}
+
+	char FStream::peekch() const
+	{
+		NotImpl();
+		return 0;
+	}
+
+	void FStream::ungetch(char)
+	{
+		NotImpl();
+	}
+
+	void FStream::Flush()
+	{
+		m_F.flush();
+		TestNoError(m_F);
+	}
+
+} // namespace std
