@@ -155,11 +155,10 @@ namespace proto {
 		void Reset();
 
 		void Connect(const io::Address& addr);
-		void Accept(io::TcpStream::Ptr&& newStream);
 
 		const StreamId& get_Connection() { return m_Connection; }
 
-		virtual void OnConnected() {}
+		virtual void OnConnected(StreamId streamId) {}
 		virtual void OnClosed(int errorCode) {}
 
 #define THE_MACRO(code, msg) \

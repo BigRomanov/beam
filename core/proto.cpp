@@ -11,7 +11,8 @@ NodeConnection::NodeConnection(P2P* p2p)
 	: m_p2p(p2p)
 	, m_ConnectPending(false)
 {
-#define THE_MACRO(code, msg) m_Protocol.add_message_handler<NodeConnection, msg, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 1, 2000000);
+    assert(m_p2p);
+#define THE_MACRO(code, msg) m_p2p->get_protocol().add_message_handler<NodeConnection, msg, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 1, 2000000);
 	BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 }
