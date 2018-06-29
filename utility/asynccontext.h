@@ -72,6 +72,7 @@ protected:
     io::Reactor::Ptr _reactor;
 
 private:
+    io::Reactor::Scope _reactorScope;
     std::unordered_map<TimerID, TimerCallback> _timerCallbacks;
     io::CoarseTimer::Ptr _timer;
     Thread _thread;

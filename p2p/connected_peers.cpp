@@ -61,7 +61,15 @@ bool ConnectedPeers::find(StreamId id, ConnectedPeers::Container::iterator& it) 
     return true;
 }
 
-io::Result ConnectedPeers::write_msg(StreamId id, const io::SharedBuffer& msg) {
+io::Result ConnectedPeers::send_message(StreamId id, const io::SharedBuffer& msg) {
+    Container::iterator it;
+    if (!find(id, it)) {
+        return make_unexpected(io::EC_ENOTCONN);
+    }
+    return it->second.conn->write_msg(msg);
+}
+
+io::Result ConnectedPeers::send_message(StreamId id, const SerializedMsg& msg) {
     Container::iterator it;
     if (!find(id, it)) {
         return make_unexpected(io::EC_ENOTCONN);

@@ -99,14 +99,14 @@ void NodeDB::Close()
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db)
-	:m_DB(db)
-	, m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_DB(db)
-	,m_pStmt(NULL)
+	:m_pStmt(NULL)
+	,m_DB(db)
 {
 	m_pStmt = m_DB.get_Statement(val, sql);
 }
@@ -971,7 +971,7 @@ uint32_t NodeDB::GetStateFlags(uint64_t rowid)
 	rs.put(0, rowid);
 
 	rs.StepStrict();
-	
+
 	uint32_t nFlags;
 	rs.get(0, nFlags);
 	return nFlags;
@@ -1048,7 +1048,7 @@ void NodeDB::assert_valid()
 		if (!nNextF && (StateFlags::Reachable & nFlags))
 			nTipsReachable++;
 	}
-	
+
 	rs.Reset(Query::Dbg1, "SELECT "
 		TblTips "." TblTips_Height ","
 		TblStates "." TblStates_Height ","

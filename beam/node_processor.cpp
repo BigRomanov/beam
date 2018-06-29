@@ -24,8 +24,8 @@ struct NodeProcessor::UnspentWalker
 	NodeProcessor& m_This;
 
 	UnspentWalker(NodeProcessor& me, bool bWithSignature)
-		:m_This(me)
-		,NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+		:NodeDB::WalkerSpendable(me.m_DB, bWithSignature)
+		,m_This(me)
 	{
 	}
 
@@ -1317,10 +1317,10 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
 	der & block;
 
-	for (auto i = 0; i < block.m_vInputs.size(); i++)
+	for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
 
-	for (auto i = 0; i < block.m_vOutputs.size(); i++)
+	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 	{
 		Output& v = *block.m_vOutputs[i];
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
@@ -1376,7 +1376,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w, const Hei
 
 	w.put_Start(vBlocks[0], prefix);
 
-	for (auto i = 0; i < vElem.size(); i++)
+	for (size_t i = 0; i < vElem.size(); i++)
 		w.put_NextHdr(vElem[i]);
 
 	w.Dump(vBlocks[0].get_Reader());
@@ -1488,7 +1488,7 @@ void NodeProcessor::ExportMacroBlock(Block::BodyBase::IMacroWriter& w)
 
 	w.put_Start(body, prefix);
 
-	for (auto i = 0; i < vElem.size(); i++)
+	for (size_t i = 0; i < vElem.size(); i++)
 		w.put_NextHdr(vElem[i]);
 }
 
@@ -1532,6 +1532,12 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 		case DataStatus::Accepted:
 			m_DB.InsertState(s);
+            break;
+
+        case DataStatus::Rejected:
+        default:
+            // ???
+            break;
 		}
 
 		s.get_Hash(s.m_Prev);

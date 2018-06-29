@@ -21,6 +21,7 @@ public:
 
     void start();
 
+
     io::Result send_message(StreamId peer, const io::SharedBuffer& msg);
     io::Result send_message(StreamId peer, const SerializedMsg& msg);
 

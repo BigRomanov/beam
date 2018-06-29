@@ -14,6 +14,7 @@ AsyncContext* ctx() { return tls_ctx; }
 
 AsyncContext::AsyncContext(unsigned coarseTimerResolutionMsec) :
     _reactor(io::Reactor::create()),
+    _reactorScope(*_reactor),
     _timer(io::CoarseTimer::create(_reactor, coarseTimerResolutionMsec, BIND_THIS_MEMFN(on_coarse_timer))),
     _started(false)
 {

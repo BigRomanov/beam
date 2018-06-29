@@ -1,7 +1,8 @@
 #pragma once
 
 #include "node_processor.h"
-#include "../utility/io/timer.h"
+#include "p2p/p2p.h"
+#include "../utility/io/asyncevent.h"
 #include "../core/proto.h"
 #include "../core/block_crypt.h"
 #include <boost/intrusive/list.hpp>
@@ -10,7 +11,7 @@
 
 namespace beam
 {
-struct Node
+struct Node : public P2PNotifications
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
 
@@ -60,15 +61,26 @@ struct Node
 
 		std::vector<Block::Body> m_vTreasury;
 
+        Height hImport=0;
+
 	} m_Cfg; // must not be changed after initialization
 
 	~Node();
-	void Initialize();
-	void ImportMacroblock(Height); // throws on err
+
+    void Initialize();
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
 private:
+    void ImportMacroblock(Height); // throws on err
+    void Reset();
+
+    // P2PNotifications
+    virtual void on_p2p_started(P2P* p2p) override;
+    virtual void on_peer_connected(StreamId id) override;
+    virtual void on_peer_state_updated(StreamId id, const PeerState& newState) override;
+    virtual void on_peer_disconnected(StreamId id) override;
+    virtual void on_p2p_stopped() override;
 
 	ECC::Hash::Value m_hvCfg;
 
@@ -172,8 +184,7 @@ private:
 	} m_Wtx;
 
 	struct Peer
-		:public proto::NodeConnection
-		,public boost::intrusive::list_base_hook<>
+		: public boost::intrusive::list_base_hook<>
 	{
 		typedef std::unique_ptr<Peer> Ptr;
 
@@ -183,7 +194,10 @@ private:
 		void get_ID(NodeProcessor::PeerID&);
 
 		State::Enum m_eState;
-		beam::io::Address m_RemoteAddr; // for logging only
+
+        P2P* m_p2p;
+        StreamId m_streamId;
+        SerializedMsg m_SerializeCache;
 
 		Height m_TipHeight;
 		proto::Config m_Config;
@@ -199,6 +213,8 @@ private:
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 
+        void OnClosed(int errorCode) { }
+
 		void OnPostError();
 		static void ThrowUnexpected();
 
@@ -208,26 +224,16 @@ private:
 
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
-		// proto::NodeConnection
-		virtual void OnConnected() override;
-		virtual void OnClosed(int errorCode) override;
-		// messages
-		virtual void OnMsg(proto::Config&&) override;
-		virtual void OnMsg(proto::Ping&&) override;
-		virtual void OnMsg(proto::NewTip&&) override;
-		virtual void OnMsg(proto::DataMissing&&) override;
-		virtual void OnMsg(proto::GetHdr&&) override;
-		virtual void OnMsg(proto::Hdr&&) override;
-		virtual void OnMsg(proto::GetBody&&) override;
-		virtual void OnMsg(proto::Body&&) override;
-		virtual void OnMsg(proto::NewTransaction&&) override;
-		virtual void OnMsg(proto::HaveTransaction&&) override;
-		virtual void OnMsg(proto::GetTransaction&&) override;
-		virtual void OnMsg(proto::GetMined&&) override;
-		virtual void OnMsg(proto::GetProofState&&) override;
-		virtual void OnMsg(proto::GetProofKernel&&) override;
-		virtual void OnMsg(proto::GetProofUtxo&&) override;
+    #define THE_MACRO(code, msg) \
+		void Send(const proto::msg& v); \
+		void OnMsg(proto::msg&& v);
+		BeamNodeMsgsAll(THE_MACRO)
+    #undef THE_MACRO
+
 	};
+
+    P2P* m_p2p=0;
+
 
 	typedef boost::intrusive::list<Peer> PeerList;
 	PeerList m_lstPeers;

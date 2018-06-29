@@ -52,6 +52,10 @@ void P2P::start() {
     run_async([this]{ _notifications.on_p2p_started(this); }, [this]{ _notifications.on_p2p_stopped(); });
 }
 
+io::Result P2P::send_message(StreamId peer, const SerializedMsg& msg) {
+    return _connectedPeers.send_message(peer, msg);
+}
+
 void P2P::update_tip(uint32_t newTip) {
     _peerState.tip = newTip;
     _peerStateUpdated = true;
@@ -217,7 +221,7 @@ bool P2P::on_known_servers_request(uint64_t id, VoidMessage&&) {
         _knownServersMsg = _protocol.serialize(KNOWN_SERVERS_MSG_TYPE, _knownServers, false);
         _knownServersUpdated = false;
     }
-    return bool(_connectedPeers.write_msg(streamId, _knownServersMsg));
+    return bool(_connectedPeers.send_message(streamId, _knownServersMsg));
 }
 
 bool P2P::on_known_servers(uint64_t id, KnownServers&& servers) {

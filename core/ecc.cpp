@@ -129,7 +129,7 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		for (int i = 0; i < _countof(d); i++)
+		for (size_t i = 0; i < _countof(d); i++)
 			if (d[i] != v.d[i])
 				return false;
 		return true;
@@ -576,7 +576,7 @@ namespace ECC {
 					{
 						pSel = &ge_s.V;
 						for (uint32_t i = 0; i < nPointsPerLevel; i++)
-							object_cmov(ge_s.V, pPts[i], i == nSel);
+							object_cmov(ge_s.V, pPts[i], i == unsigned(nSel) );
 					}
 					else
 						pSel = pPts + nSel;
@@ -676,7 +676,7 @@ namespace ECC {
 		Generator::FromPt(m_Fast.m_pPt[0], val);
 		Point::Native npos, nums = val;
 
-		for (int i = 1; i < _countof(m_Fast.m_pPt); i++)
+		for (size_t i = 1; i < _countof(m_Fast.m_pPt); i++)
 		{
 			if (i & (i + 1))
 				npos += val;
@@ -843,8 +843,8 @@ namespace ECC {
 
 						int nVal = (n >> (iLayerPrep * Prepared::Secure::nBits)) & ((1 << Prepared::Secure::nBits) - 1);
 
-						for (int i = 0; i < _countof(x.m_pPt); i++)
-							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == nVal);
+						for (size_t i = 0; i < _countof(x.m_pPt); i++)
+							Generator::object_cmov(ge_s.V, x.m_pPt[i], i == unsigned(nVal) );
 
 						Generator::ToPt(res, ge.V, ge_s.V, false);
 					}
@@ -1151,13 +1151,13 @@ namespace ECC {
 
 			void Init(const Modifier& mod)
 			{
-				for (int j = 0; j < _countof(mod.m_pMultiplier); j++)
+				for (size_t j = 0; j < _countof(mod.m_pMultiplier); j++)
 				{
 					m_pUse[j] = (NULL != mod.m_pMultiplier[j]);
 					if (m_pUse[j])
 					{
 						m_pPwr[j][0] = 1U;
-						for (int i = 1; i < nDim; i++)
+						for (size_t i = 1; i < nDim; i++)
 							m_pPwr[j][i] = m_pPwr[j][i - 1] * *(mod.m_pMultiplier[j]);
 					}
 				}
@@ -1309,7 +1309,7 @@ namespace ECC {
 	{
 		if (iCycle != m_iCycleTrg)
 		{
-			assert(iCycle <= nCycles);
+			assert(unsigned(iCycle) <= nCycles);
 			Scalar::Native k0 = k;
 			k0 *= m_cs.m_Val[nCycles - iCycle][!m_j];
 

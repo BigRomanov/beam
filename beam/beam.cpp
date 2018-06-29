@@ -180,7 +180,7 @@ namespace
 
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
         arc & vBlocks;
-        
+
 		return true;
     }
 }
@@ -252,8 +252,9 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 
 	m_pKeyChain->store(m_Coins); // we get coin id only after store
 
-    for (uint32_t i = 0; i < nCount; ++i)
+    for (uint32_t i = 0; i < nCount; ++i) {
         m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
+    }
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -479,8 +480,6 @@ int main(int argc, char* argv[])
 
         if (vm.count(cli::MODE))
         {
-            io::Reactor::Ptr reactor(io::Reactor::create());
-            io::Reactor::Scope scope(*reactor);
             NoLeak<uintBig> walletSeed;
             walletSeed.V = Zero;
             if (hasWalletSeed)
@@ -497,26 +496,14 @@ int main(int argc, char* argv[])
             {
                 beam::Node node;
 
-                node.m_Cfg.m_Listen.port(port);
-                node.m_Cfg.m_Listen.ip(INADDR_ANY);
-                node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
-                node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-                node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
-				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-                if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
-                {
-                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-                    return -1;
-                }
-                node.m_Cfg.m_WalletKey = walletSeed;
+                beam::P2PSettings p2pSettings;
 
-				std::vector<std::string> vPeers;
+                std::vector<std::string> vPeers;
 
 				if (vm.count(cli::NODE_PEER))
 					vPeers = vm[cli::NODE_PEER].as<std::vector<std::string> >();
 
 				node.m_Cfg.m_Connect.resize(vPeers.size());
-
 				for (size_t i = 0; i < vPeers.size(); i++)
 				{
 					io::Address& addr = node.m_Cfg.m_Connect[i];
@@ -537,6 +524,27 @@ int main(int argc, char* argv[])
 					}
 				}
 
+				// priority peers will be connected and reconnected
+                p2pSettings.priorityPeers = node.m_Cfg.m_Connect;
+                p2pSettings.bindToIp = node.m_Cfg.m_Listen.ip();
+                p2pSettings.listenToPort = node.m_Cfg.m_Listen.port();
+
+                std::unique_ptr<beam::P2P> p2p = std::make_unique<beam::P2P>(node, p2pSettings);
+
+                node.m_Cfg.m_Listen.port(port);
+                node.m_Cfg.m_Listen.ip(INADDR_ANY);
+
+                node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<std::string>();
+                node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+                node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
+				node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
+                if (node.m_Cfg.m_MiningThreads > 0 && !hasWalletSeed)
+                {
+                    LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
+                    return -1;
+                }
+                node.m_Cfg.m_WalletKey = walletSeed;
+
 				node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
 				node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
 
@@ -551,16 +559,23 @@ int main(int argc, char* argv[])
 						LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
                 }
 
-				node.Initialize();
+				node.m_Cfg.hImport = vm[cli::IMPORT].as<Height>();
 
-				Height hImport = vm[cli::IMPORT].as<Height>();
-				if (hImport)
-					node.ImportMacroblock(hImport);
+                // TODO transfer to reactor thread
+                node.Initialize();
 
-                reactor->run();
+                p2p->start();
+
+                LOG_INFO() << "Waiting for signal";
+                wait_for_termination(0);
+
+                LOG_INFO() << "Stopping...";
             }
             else if (mode == cli::WALLET)
             {
+                io::Reactor::Ptr reactor = io::Reactor::create();
+                io::Reactor::Scope scope(*reactor);
+
                 if (vm.count(cli::COMMAND))
                 {
                     auto command = vm[cli::COMMAND].as<string>();
@@ -757,6 +772,8 @@ int main(int argc, char* argv[])
 	{
 		LOG_ERROR() << e.what();
 	}
+
+	LOG_INFO() << "Done";
 
     return 0;
 }

@@ -22,7 +22,9 @@ public:
 
     void remove_connection(StreamId id);
 
-    io::Result write_msg(StreamId id, const io::SharedBuffer& msg);
+    io::Result send_message(StreamId id, const io::SharedBuffer& msg);
+
+    io::Result send_message(StreamId id, const SerializedMsg& msg);
 
     void ping(const io::SharedBuffer& msg);
 

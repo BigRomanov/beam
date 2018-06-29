@@ -11,6 +11,8 @@
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
+#include <mutex>
+
 namespace beam {
 
 void Node::RefreshCongestions()
@@ -247,7 +249,7 @@ void Node::Processor::OnNewState()
 	get_ParentObj().m_TxPool.DeleteOutOfBound(msg.m_ID.m_Height + 1);
 
 	get_ParentObj().m_Miner.HardAbortSafe();
-	
+
 	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; )
@@ -396,6 +398,21 @@ Node::Peer* Node::FindPeer(const Processor::PeerID& peerID)
 	return NULL;
 }
 
+void pre_initialize() {
+/*
+    if (m_Cfg.m_Listen.port())
+		m_Server.Listen(m_Cfg.m_Listen);
+
+	for (size_t i = 0; i < m_Cfg.m_Connect.size(); i++)
+	{
+		Peer* p = AllocPeer();
+		p->m_iPeer = i;
+
+		p->OnTimer(); // initiate connect
+	}
+*/
+}
+
 void Node::Initialize()
 {
 	Rules::get_Hash(m_hvCfg);
@@ -413,17 +430,6 @@ void Node::Initialize()
 	}
 
 	RefreshCongestions();
-
-	if (m_Cfg.m_Listen.port())
-		m_Server.Listen(m_Cfg.m_Listen);
-
-	for (size_t i = 0; i < m_Cfg.m_Connect.size(); i++)
-	{
-		Peer* p = AllocPeer();
-		p->m_iPeer = i;
-
-		p->OnTimer(); // initiate connect
-	}
 
 	if (m_Cfg.m_MiningThreads)
 	{
@@ -446,6 +452,9 @@ void Node::Initialize()
 
 	if (m_Compressor.m_bEnabled)
 		m_Compressor.Init();
+
+    if (m_Cfg.hImport)
+        ImportMacroblock(m_Cfg.hImport);
 }
 
 void Node::ImportMacroblock(Height h)
@@ -466,7 +475,12 @@ void Node::ImportMacroblock(Height h)
 
 Node::~Node()
 {
-	m_Miner.HardAbortSafe();
+    Reset();
+}
+
+void Node::Reset()
+{
+    	m_Miner.HardAbortSafe();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
 	{
@@ -537,7 +551,7 @@ void Node::Peer::OnTimer()
 
 		try {
             m_eState = State::Connecting;
-			Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
+			// .... TODO Connect(m_pThis->m_Cfg.m_Connect[m_iPeer]);
 		} catch (...) {
 			OnPostError();
 		}
@@ -549,9 +563,15 @@ void Node::Peer::OnTimer()
 		assert(!m_lstTasks.empty()); // task (request) wasn't handled in time
 		OnPostError();
 		break;
+
+    default:
+        break;
 	}
 }
 
+// TODO P2PNotifications here
+
+/*
 void Node::Peer::OnConnected()
 {
 	m_RemoteAddr = get_Connection()->peer_address();
@@ -581,6 +601,7 @@ void Node::Peer::OnConnected()
 	}
 }
 
+
 void Node::Peer::OnClosed(int errorCode)
 {
 	assert(State::Connected == m_eState || State::Connecting == m_eState);
@@ -588,6 +609,7 @@ void Node::Peer::OnClosed(int errorCode)
 		m_eState = State::Snoozed;
 	OnPostError();
 }
+*/
 
 void Node::Peer::get_ID(NodeProcessor::PeerID& id)
 {
@@ -616,7 +638,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::OnPostError()
 {
-	LOG_INFO() << "-Peer " << m_RemoteAddr;
+	LOG_INFO() << "-Peer " << m_streamId.address();
 
 	if (State::Snoozed != m_eState)
 		m_eState = State::Idle; // prevent reassigning the tasks
@@ -627,16 +649,22 @@ void Node::Peer::OnPostError()
 		m_pThis->DeletePeer(this);
 	else
 	{
-		Reset(); // connection layer
-		m_setRejected.clear();
+// 		Reset(); // connection layer
+// 		m_setRejected.clear();
+//
+// 		if (State::Snoozed == m_eState)
 
-		if (State::Snoozed == m_eState)
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
-		else
-		{
-			m_eState = State::Idle;
-			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
-		}
+        // TODO ban for insane msecs
+
+// 			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Insane_ms);
+// 		else
+// 		{
+
+        // TODO should reconnect
+
+// 			m_eState = State::Idle;
+// 			SetTimer(m_pThis->m_Cfg.m_Timeout.m_Reconnect_ms);
+// 		}
 	}
 }
 
@@ -666,7 +694,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	m_TipHeight = msg.m_ID.m_Height;
 	m_setRejected.clear();
 
-	LOG_INFO() << "Peer " << get_Connection()->peer_address() << " Tip: " << msg.m_ID;
+	LOG_INFO() << "Peer " << m_streamId.address() << " Tip: " << msg.m_ID;
 
 	TakeTasks();
 
@@ -818,7 +846,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 			// Log it
 			std::ostringstream os;
 
-			os << "Tx " << key.m_Key << " from " << get_Connection()->peer_address();
+			os << "Tx " << key.m_Key << " from " << m_streamId.address();
 
 			for (size_t i = 0; i < tx.m_vInputs.size(); i++)
 				os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
@@ -1098,6 +1126,40 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	Send(t.m_Msg);
 }
 
+#define THE_MACRO(code, msg) \
+void Node::Peer::Send(const proto::msg& v) \
+{ \
+	m_SerializeCache.clear(); \
+	assert(m_p2p); \
+	m_p2p->get_protocol().serialize(m_SerializeCache, uint8_t(code), v); \
+	io::Result res = m_p2p->send_message(m_streamId, m_SerializeCache); \
+	m_SerializeCache.clear(); \
+\
+	if (!res) throw std::runtime_error(io::error_descr(res.error())); \
+}
+BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+
+void Node::on_p2p_started(P2P* p2p) {
+    m_p2p = p2p;
+}
+
+void Node::on_peer_connected(StreamId id) {
+}
+
+void Node::on_peer_state_updated(StreamId id, const PeerState& newState) {
+    // TODO
+}
+
+void Node::on_peer_disconnected(StreamId id) {
+}
+
+void Node::on_p2p_stopped() {
+    Reset();
+}
+
+
+/*
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -1110,6 +1172,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 		p->OnConnected();
 	}
 }
+*/
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
 {
@@ -1137,7 +1200,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		static_assert(sizeof(s.m_PoW.m_Nonce) <= sizeof(hv));
 		memcpy(s.m_PoW.m_Nonce.m_pData, hv.m_pData, sizeof(s.m_PoW.m_Nonce.m_pData));
-	
+
 		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
 		{
 			if (*pTask->m_pStop)
@@ -1285,6 +1348,7 @@ bool Node::Miner::Restart()
 
 	return true;
 }
+
 
 void Node::Miner::OnMined()
 {
