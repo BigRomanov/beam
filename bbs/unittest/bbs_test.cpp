@@ -2,6 +2,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "utility/asynccontext.h"
+#include <iostream>
 
 using namespace beam;
 using namespace beam::bbs;
@@ -14,8 +15,44 @@ void test1() {
 #ifndef WIN32
         kill(0, SIGTERM);
 #endif // !WIN32
-        
+
     }
+}
+
+
+using namespace std;
+
+long long C(int n,int k)
+{
+    if ((n==k) || (k==0)) {
+        return 1;
+    }
+    if (k==1) {
+        return n;
+    }
+    return C(n-1,k)+C(n-1,k-1);
+}
+
+void test2()
+{
+    long long n,k,p,c,last=0;
+    cin >> n >> k >> p;
+    cout << TRACE(C(n,k)) << '\n';
+    for (int i=1; i<=k; i++) {
+        for (int it = last + 1; it <= n; it++) {
+            c = C(n - it, k - i);
+
+            if (p <= c) {
+                cout << it << " ";
+                last = it;
+                break;
+            } else {
+                p -= c;
+            }
+
+        }
+    }
+    cout << '\n';
 }
 
 int main(int argc, char* argv[]) {
@@ -57,11 +94,12 @@ int main(int argc, char* argv[]) {
 */
 
     try {
-        AsyncContext ctx;
-        ctx.run_async(test1);
-        wait_for_termination(0);
-        ctx.stop();
-        ctx.wait();
+        test2();
+        //AsyncContext ctx;
+        //ctx.run_async(test1);
+        //wait_for_termination(0);
+        //ctx.stop();
+        //ctx.wait();
         return 0;
     } catch (const std::exception& e) {
         LOG_ERROR() << "Exception: " << e.what();
